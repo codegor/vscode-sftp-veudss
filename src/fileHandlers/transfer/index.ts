@@ -146,13 +146,7 @@ export const uploadFile = createFileHandler<TransferOption>({
   handle: uploadHandle,
   transformOption() {
     const config = this.config;
-    console.log('=== DEBUG uploadFile transformOption ===');
-    console.log('useIgnoreForUpload:', config.useIgnoreForUpload);
-    console.log('config.ignore type:', typeof config.ignore);
-    console.log('config.ignore:', config.ignore);
-    
     const ignoreValue = config.useIgnoreForUpload ? config.ignore : null;
-    console.log('Final ignore value:', ignoreValue);
     return {
       perserveTargetMode: config.protocol === 'sftp' && !config.filePerm,
       useTempFile: config.useTempFile,

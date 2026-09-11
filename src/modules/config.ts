@@ -86,7 +86,7 @@ const defaultConfig = {
   // name: undefined,
   remotePath: './',
   uploadOnSave: false,
-  useIgnoreForUpload: false,
+  useIgnoreForUpload: true,
   useTempFile: false,
   openSsh: false,
   downloadOnOpen: false,

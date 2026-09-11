@@ -9,8 +9,9 @@ I used the current master as a baseline to add new functionality. It extends the
  `"useIgnoreForUpload": [bool]`
 
 This allows the Ignore List to be used when uploading files via command or on Save.
-No blocked files are uploaded to the server anymore
-**NEW: The delete Option always bypasses the ignore List! ->** Deleting files on the server doenst follow the blocklist
+No blocked files are uploaded to the server anymore.
+In this build it is **on by default**; disable it per project with `"useIgnoreForUpload": false` in `.vscode/sftp.json`.
+**Deletes respect the ignore List too:** deleting an ignored local file (watcher `autoDelete`) no longer sends a remote delete.
 
 It also adds a new config option for showing synced files status (its fully customizeable)
 

@@ -58,7 +58,7 @@
       "useIgnoreForUpload": {
         "type": "boolean",
         "description": "When true, all upload functions will check if the file falls under the ignore list. Ignored files will not be uploaded.",
-        "default": false
+        "default": true
       },
       "useTempFile": {
         "type": "boolean",
