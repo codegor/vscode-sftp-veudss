@@ -2,9 +2,43 @@ import { refreshRemoteExplorer } from '../shared';
 import createFileHandler, { FileHandlerContext } from '../createFileHandler';
 import { transfer, sync, TransferOption, SyncOption, TransferDirection } from './transfer';
 import app from '../../app';
+import logger from '../../logger';
+
+const runningUploads = new Map<string, { rerun: boolean }>();
+
+// overlapping upload requests for one path (watcher bursts, uploadOnSave + watcher)
+// are coalesced: the running transfer finishes, then at most one more runs
+async function withUploadLock(
+  localFsPath: string,
+  run: () => Promise<void>
+): Promise<void> {
+  const inflight = runningUploads.get(localFsPath);
+  if (inflight) {
+    inflight.rerun = true;
+    logger.info(`upload already in progress, will re-upload when done: ${localFsPath}`);
+    return;
+  }
+  const state = { rerun: false };
+  runningUploads.set(localFsPath, state);
+  try {
+    await run();
+  } finally {
+    runningUploads.delete(localFsPath);
+  }
+  if (state.rerun) {
+    await withUploadLock(localFsPath, run);
+  }
+}
 
 function createTransferHandle(direction: TransferDirection) {
   return async function handle(this: FileHandlerContext, option) {
+    if (direction === TransferDirection.LOCAL_TO_REMOTE) {
+      return withUploadLock(this.target.localFsPath, () => doTransfer.call(this, option));
+    }
+    return doTransfer.call(this, option);
+  };
+
+  async function doTransfer(this: FileHandlerContext, option) {
     const remoteFs = await this.fileService.getRemoteFileSystem(this.config);
     const localFs = this.fileService.getLocalFileSystem();
     const { localFsPath, remoteFsPath } = this.target;
@@ -35,7 +69,7 @@ function createTransferHandle(direction: TransferDirection) {
     // todo: abort at here. we should stop collect task
     await transfer(transferConfig, t => scheduler.add(t));
     await scheduler.run();
-  };
+  }
 }
 
 const uploadHandle = createTransferHandle(TransferDirection.LOCAL_TO_REMOTE);
