@@ -3,9 +3,10 @@ import * as path from 'path';
 import app from '../../app';
 import logger from '../../logger';
 import { simplifyPath, reportError } from '../../helper';
-import { UResource, FileService, TransferTask } from '../../core';
+import { UResource, FileService, TransferTask, TransferDirection } from '../../core';
 import { validateConfig } from '../config';
 import watcherService from '../fileWatcher';
+import { markDownloadedLocally } from '../downloadEcho';
 import Trie from './trie';
 
 const WIN_DRIVE_REGEX = /^([a-zA-Z]):/;
@@ -101,6 +102,9 @@ export function createFileService(config: any, workspace: string) {
   service.setWatcherService(watcherService);
   service.beforeTransfer(task => {
     const { localFsPath, transferType } = task;
+    if (transferType === TransferDirection.REMOTE_TO_LOCAL) {
+      markDownloadedLocally(localFsPath);
+    }
     app.sftpBarItem.showMsg(
       `${transferType} ${path.basename(localFsPath)}`,
       simplifyPath(localFsPath)
@@ -108,6 +112,9 @@ export function createFileService(config: any, workspace: string) {
   });
   service.afterTransfer((error, task) => {
     const { localFsPath, transferType } = task;
+    if (transferType === TransferDirection.REMOTE_TO_LOCAL) {
+      markDownloadedLocally(localFsPath);
+    }
     const filename = path.basename(localFsPath);
     const filepath = simplifyPath(localFsPath);
     if (task.isCancelled()) {

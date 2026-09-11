@@ -3,6 +3,7 @@ import createFileHandler, { FileHandlerContext } from '../createFileHandler';
 import { transfer, sync, TransferOption, SyncOption, TransferDirection } from './transfer';
 import app from '../../app';
 import logger from '../../logger';
+import { beginDownload } from '../../modules/downloadEcho';
 
 const runningUploads = new Map<string, { rerun: boolean }>();
 
@@ -35,7 +36,12 @@ function createTransferHandle(direction: TransferDirection) {
     if (direction === TransferDirection.LOCAL_TO_REMOTE) {
       return withUploadLock(this.target.localFsPath, () => doTransfer.call(this, option));
     }
-    return doTransfer.call(this, option);
+    const endDownload = beginDownload(this.target.localFsPath);
+    try {
+      await doTransfer.call(this, option);
+    } finally {
+      endDownload();
+    }
   };
 
   async function doTransfer(this: FileHandlerContext, option) {

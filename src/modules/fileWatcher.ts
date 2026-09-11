@@ -3,10 +3,10 @@ import * as debounce from 'lodash.debounce';
 import logger from '../logger';
 import { isValidFile, fileDepth } from '../helper';
 import { upload, removeRemote } from '../fileHandlers';
-import { WatcherService, TransferDirection } from '../core';
+import { WatcherService } from '../core';
 import app from '../app';
 import StatusBarItem from '../ui/statusBarItem';
-import { getRunningTransformTasks } from './serviceManager';
+import { isDownloadEcho } from './downloadEcho';
 
 const watchers: {
   [x: string]: vscode.FileSystemWatcher;
@@ -22,17 +22,13 @@ function doUpload() {
   const files = Array.from(uploadQueue).sort((a, b) => fileDepth(b.fsPath) - fileDepth(a.fsPath));
   uploadQueue.clear();
 
-  const currentDownloadTasks = getRunningTransformTasks().filter(
-    task => task.transferType === TransferDirection.REMOTE_TO_LOCAL
-  );
-
   files.forEach(async uri => {
-    // current target is still in downloading, so don't upload it.
-    if (currentDownloadTasks.find(task => task.localFsPath === uri.fsPath)) {
+    const fspath = uri.fsPath;
+    if (isDownloadEcho(fspath)) {
+      logger.info(`[watcher/updated] skipped, written by download: ${fspath}`);
       return;
     }
 
-    const fspath = uri.fsPath;
     logger.info(`[watcher/updated] ${fspath}`);
     try {
       await upload(uri);
@@ -48,6 +44,10 @@ function doDelete() {
   deleteQueue.clear();
   files.forEach(async uri => {
     const fspath = uri.fsPath;
+    if (isDownloadEcho(fspath)) {
+      logger.info(`[watcher/removed] skipped, written by download: ${fspath}`);
+      return;
+    }
     logger.info(`[watcher/removed] ${fspath}`);
     try {
       await removeRemote(uri);
