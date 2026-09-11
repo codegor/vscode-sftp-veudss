@@ -18,12 +18,38 @@ import { downloadFile, uploadFile } from '../fileHandlers';
 let workspaceWatcher: vscode.Disposable;
 let configFileWatcher;
 
+const configReloads = new Map<string, { readDone: boolean; rerun: boolean }>();
+
 async function handleConfigSave(uri: vscode.Uri) {
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
   if (!workspaceFolder) {
     return;
   }
 
+  // an editor save fires both onDidSaveTextDocument and the config file watcher
+  const key = uri.fsPath;
+  const inflight = configReloads.get(key);
+  if (inflight) {
+    inflight.rerun = inflight.readDone;
+    return;
+  }
+  const state = { readDone: false, rerun: false };
+  configReloads.set(key, state);
+  try {
+    await reloadConfig(uri, workspaceFolder, state);
+  } finally {
+    configReloads.delete(key);
+  }
+  if (state.rerun) {
+    await handleConfigSave(uri);
+  }
+}
+
+async function reloadConfig(
+  uri: vscode.Uri,
+  workspaceFolder: vscode.WorkspaceFolder,
+  state: { readDone: boolean }
+) {
   const workspacePath = workspaceFolder.uri.fsPath;
 
   // dispose old service
@@ -32,6 +58,7 @@ async function handleConfigSave(uri: vscode.Uri) {
   // create new service
   try {
     const configs = await readConfigsFromFile(uri.fsPath);
+    state.readDone = true;
     configs.forEach(config => createFileService(config, workspacePath));
   } catch (error) {
     reportError(error);
