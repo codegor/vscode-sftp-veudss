@@ -274,7 +274,7 @@ async function execute(
     }
     progress.report({ message: `delete ${path.basename(change.uri.fsPath)}` });
     try {
-      await removeRemote(change.uri);
+      await removeRemote(change.uri, { ignore: null });
       result.deleted.push({ change });
     } catch (error) {
       if (isNotFoundError(error)) {

@@ -26,5 +26,5 @@ export default checkFileCommand({
     return result ? targets : undefined;
   },
 
-  handleFile: removeRemote,
+  handleFile: ctx => removeRemote(ctx, { ignore: null }),
 });
