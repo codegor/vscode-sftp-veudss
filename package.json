@@ -2,7 +2,7 @@
   "name": "sftp-fixed",
   "displayName": "SFTP (fixed)",
   "description": "SFTP/FTP sync with ignore list and file status indicators",
-  "version": "1.17.3",
+  "version": "1.17.4",
   "publisher": "egor",
   "author": "jonasxwebdev",
   "engines": {

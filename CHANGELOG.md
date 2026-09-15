@@ -1,3 +1,7 @@
+## 1.17.4 - 2026-09-15
+* Fix : Watcher no longer reports an error when a short-lived file (editor swap file, sed/git scratch) is created and deleted before it can be uploaded; such events are logged as skipped and the status bar stays green.
+* Fix : A delete event now cancels a pending watcher upload of the same path.
+
 ## 1.17.3 - 2026-09-02
 * Perf : `Upload Changed Files` uploads all files of a server in one batch: remote folders are created once, the connection only carries transfers, remote explorer and sync status are refreshed once at the end.
 * Perf : Sync status shares one folder listing between concurrent requests and logs single entries only in debug mode.

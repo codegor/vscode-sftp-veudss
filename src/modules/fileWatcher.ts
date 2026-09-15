@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as debounce from 'lodash.debounce';
 import logger from '../logger';
-import { isValidFile, fileDepth } from '../helper';
+import { isValidFile, fileDepth, isNotFoundError } from '../helper';
 import { upload, removeRemote } from '../fileHandlers';
 import { WatcherService } from '../core';
 import app from '../app';
@@ -12,14 +12,14 @@ const watchers: {
   [x: string]: vscode.FileSystemWatcher;
 } = {};
 
-const uploadQueue = new Set<vscode.Uri>();
-const deleteQueue = new Set<vscode.Uri>();
+const uploadQueue = new Map<string, vscode.Uri>();
+const deleteQueue = new Map<string, vscode.Uri>();
 
 // less than 550 will not work
 const ACTION_INTEVAL = 550;
 
 function doUpload() {
-  const files = Array.from(uploadQueue).sort((a, b) => fileDepth(b.fsPath) - fileDepth(a.fsPath));
+  const files = Array.from(uploadQueue.values()).sort((a, b) => fileDepth(b.fsPath) - fileDepth(a.fsPath));
   uploadQueue.clear();
 
   files.forEach(async uri => {
@@ -33,6 +33,10 @@ function doUpload() {
     try {
       await upload(uri);
     } catch (error) {
+      if (isNotFoundError(error)) {
+        logger.info(`[watcher/updated] skipped, local file already gone: ${fspath}`);
+        return;
+      }
       logger.error(error, `upload ${fspath}`);
       app.sftpBarItem.updateStatus(StatusBarItem.Status.error);
     }
@@ -40,7 +44,7 @@ function doUpload() {
 }
 
 function doDelete() {
-  const files = Array.from(deleteQueue).sort((a, b) => fileDepth(b.fsPath) - fileDepth(a.fsPath));
+  const files = Array.from(deleteQueue.values()).sort((a, b) => fileDepth(b.fsPath) - fileDepth(a.fsPath));
   deleteQueue.clear();
   files.forEach(async uri => {
     const fspath = uri.fsPath;
@@ -52,6 +56,10 @@ function doDelete() {
     try {
       await removeRemote(uri);
     } catch (error) {
+      if (isNotFoundError(error)) {
+        logger.info(`[watcher/removed] skipped, already absent on remote: ${fspath}`);
+        return;
+      }
       logger.error(error, `remove ${fspath}`);
       app.sftpBarItem.updateStatus(StatusBarItem.Status.error);
     }
@@ -66,7 +74,7 @@ function uploadHandler(uri: vscode.Uri) {
     return;
   }
 
-  uploadQueue.add(uri);
+  uploadQueue.set(uri.fsPath, uri);
   debouncedUpload();
 }
 
@@ -117,7 +125,10 @@ function createWatcher(
         return;
       }
 
-      deleteQueue.add(uri);
+      // short-lived temp files (editor swap files, sed/git scratch) fire create+delete
+      // within one debounce window; uploading them would only fail with ENOENT
+      uploadQueue.delete(uri.fsPath);
+      deleteQueue.set(uri.fsPath, uri);
       debouncedDelete();
     });
   }

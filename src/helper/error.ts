@@ -19,3 +19,16 @@ export function reportError(err: Error | string, ctx?: string) {
   });
   return;
 }
+
+export function isNotFoundError(error: any): boolean {
+  if (!error) {
+    return false;
+  }
+  // local: ENOENT, sftp: SSH_FX_NO_SUCH_FILE (2), ftp: 550
+  if (error.code === 'ENOENT' || error.code === 2 || error.code === 550) {
+    return true;
+  }
+  return /no such file|not found|does not exist|file unavailable/i.test(
+    String(error.message || error)
+  );
+}
